@@ -3,37 +3,33 @@
 import fs from "fs";
 import ytdl from "ytdl-core";
 
-async function downloadYTVideo(req, res) {
-  try {
-    let url = "https://www.youtube.com/watch?v=yLxapIHNSfc";
-    let videoID = ytdl.getVideoID(url);
-    let info = await ytdl.getInfo(videoID);
-    console.log(
-      "Downloading",
-      info.formats.map((i) => i.itag)
-    );
-    await new Promise((resolve, reject) => {
-      try {
-        // let format = ytdl.chooseFormat(info.formats, { quality: "136" });
-        // ytdl.chooseFormat(format, "videoandaudio");
-        // ytdl(url).pipe(fs.createWriteStream(`${info.videoDetails.title}.mp4`));
-        ytdl
-          .downloadFromInfo(info, {
-            filter: "videoandaudio",
-            quality: 136,
-          })
-          .pipe(fs.createWriteStream(`${info.videoDetails.title}.mp4`));
-        // console.log(ytdl.chooseFormat(format, "videoandaudio"));
-        resolve();
-      } catch (error) {
-        reject(error);
-      }
-    });
-    console.log("Downloading finished");
-    // let format = ytdl.chooseFormat(info.formats, { quality: "136" });
-    // console.log(ytdl.videoFormat);
-  } catch (error) {
-    console.log(error);
-  }
-}
-downloadYTVideo();
+// URL of the video to be downloaded
+const url = "https://www.youtube.com/watch?v=yLxapIHNSfc";
+
+let videoSize = 0;
+let downloaded = 0;
+
+ytdl.getInfo(url, (err, info) => {
+  if (err) throw err;
+
+  // Get video details
+  const formats = ytdl.filterFormats(info.formats, "mp4");
+
+  // Choose the highest quality format
+  const format = formats[0];
+
+  // Create a readable stream
+  const stream = ytdl.downloadFromInfo(info, { format: format });
+
+  stream.on("response", (res) => {
+    videoSize = res.headers["content-length"];
+  });
+
+  stream.on("data", (chunk) => {
+    downloaded += chunk.length;
+    const downloadedMinutes = (downloaded / videoSize) * 100;
+    process.stdout.write(`Progress: ${downloadedMinutes.toFixed(2)}%\r`);
+  });
+
+  stream.pipe(fs.createWriteStream("video.mp4"));
+});
